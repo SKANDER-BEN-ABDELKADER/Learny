@@ -1,4 +1,4 @@
-import axios from 'axios';
+import api from './api';
 
 const chatbotService = {
   async sendMessage(message, conversationId) {
@@ -7,7 +7,7 @@ const chatbotService = {
       payload.conversationId = conversationId;
     }
 
-    const response = await axios.post('http://localhost:3000/chatbot', payload);
+    const response = await api.post('/chatbot', payload);
     return response.data;
   },
 };

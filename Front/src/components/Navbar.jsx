@@ -1,50 +1,47 @@
 import * as React from "react";
 import { useState, useEffect, useRef } from "react";
 import { Button } from "../components/ui/button";
-import { Menu, X,Waypoints, Search, User, ShoppingCart, Book, LogOut, LayoutDashboard, Upload } from "lucide-react";
+import { Menu, X,Waypoints, Search, User, ShoppingCart, Book, LogOut, LayoutDashboard, Upload, Clock } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "./context/AuthContext";
+import api from "../services/api";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState(null);
   const [showInstructorForm, setShowInstructorForm] = useState(false);
   const [instructorForm, setInstructorForm] = useState({ domaine: "", experience_lvl: "" });
   const [dashboardView, setDashboardView] = useState("student"); 
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [tokenExpirationWarning, setTokenExpirationWarning] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
-  const api = "http://localhost:3000"; 
+  const { user, isAuthenticated, logout, token } = useAuth(); 
 
+  // Check token expiration and show warning
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    const userData = localStorage.getItem("user");  
-    setIsLoggedIn(!!token);
-    if (userData) {
-      const parsed = JSON.parse(userData);
-      setUser(parsed);
-    } else {
-      setUser(null);
-    }
-  }, []);
+    if (!token) return;
 
-  // Listen for login/logout changes in other tabs
-  useEffect(() => {
-    const handler = () => {
-      const token = localStorage.getItem("access_token");
-      const userData = localStorage.getItem("user");
-      setIsLoggedIn(!!token);
-      if (userData) {
-        const parsed = JSON.parse(userData);
-        setUser(parsed);
-      } else {
-        setUser(null);
+    const checkTokenExpiration = () => {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const currentTime = Date.now() / 1000;
+        const timeUntilExpiry = payload.exp - currentTime;
+        
+        // Show warning if token expires in less than 5 minutes
+        if (timeUntilExpiry < 300 && timeUntilExpiry > 0) {
+          setTokenExpirationWarning(true);
+        } else {
+          setTokenExpirationWarning(false);
+        }
+      } catch (error) {
+        console.error('Error checking token expiration:', error);
       }
     };
-    // console.log(user.role, user.actualRole);
-    window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
-  }, []);
+
+    checkTokenExpiration();
+    const interval = setInterval(checkTokenExpiration, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
+  }, [token]);
 
    useEffect(() => {
     const handleClickOutside = (event) => {
@@ -59,12 +56,8 @@ const Navbar = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("user");
-    setIsLoggedIn(false);
-    setUser(null);
+    logout();
     navigate("/");
-    window.location.reload(); // To refresh UI state everywhere
   };
 
   // Show instructor form modal
@@ -83,22 +76,13 @@ const Navbar = () => {
     e.preventDefault();
     if (!user?.id) return alert("User ID not found");
     try {
-      const token = localStorage.getItem("access_token");
-      const res = await fetch(`${api}/user/${user.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          role: "INSTRUCTOR",
-          actual_role: "INSTRUCTOR",
-          domain: instructorForm.domaine,
-          experienceLvl: instructorForm.experience_lvl,
-        }),
+      const res = await api.patch(`/user/${user.id}`, {
+        role: "INSTRUCTOR",
+        actual_role: "INSTRUCTOR",
+        domain: instructorForm.domaine,
+        experienceLvl: instructorForm.experience_lvl,
       });
-      if (!res.ok) throw new Error("Failed to update role in database");
-      const updatedUser = await res.json();
+      const updatedUser = res.data;
       setUser(updatedUser);
       localStorage.setItem("user", JSON.stringify(updatedUser));
       setShowInstructorForm(false);
@@ -130,29 +114,8 @@ const Navbar = () => {
   const newActualRole = user.actual_role === "INSTRUCTOR" ? "STUDENT" : "INSTRUCTOR";
   
   try {
-    const token = localStorage.getItem("access_token");
-    if (!token) {
-      throw new Error("No authentication token found");
-    }
-
-    const response = await fetch(`${api}/user/${user.id}/toggle-role`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      // No body needed since the endpoint handles the toggle internally
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message || 
-        `Failed to update role: ${response.status} ${response.statusText}`
-      );
-    }
-
-    const updatedUser = await response.json();
+    const response = await api.patch(`/user/${user.id}/toggle-role`);
+    const updatedUser = response.data;
     
     // Update state and storage
     setUser(updatedUser);
@@ -242,8 +205,16 @@ const Navbar = () => {
             </Button> */}
 
 
+            {/* Token Expiration Warning */}
+            {tokenExpirationWarning && (
+              <div className="flex items-center gap-2 text-amber-600 text-sm">
+                <Clock className="w-4 h-4" />
+                <span>Session expires soon</span>
+              </div>
+            )}
+
             {/* Auth/Profile Buttons */}
-            {!isLoggedIn ? (
+            {!isAuthenticated ? (
               <div className="hidden md:flex items-center space-x-2">
                 <Link to="/login">
                   <Button variant="ghost">Log In</Button>
@@ -399,7 +370,7 @@ const Navbar = () => {
 
 
               {/* Mobile Auth/Profile */}
-              {!isLoggedIn ? (
+              {!isAuthenticated ? (
                 <div className="flex flex-col space-y-2 px-4 pt-4 border-t">
                   <Link to="/login">
                     <Button variant="outline" className="w-full">Log In</Button>
@@ -415,13 +386,13 @@ const Navbar = () => {
                   <div className="flex items-center gap-2 px-4 pt-4">
                     <span className="font-medium">{user?.firstName || user?.name || "Profile"}</span>
                     {/* Single Role Button */}
-                    {role === "student" && actualRole === "student" ? (
+                    {user?.role === "STUDENT" && user?.actual_role === "STUDENT" ? (
                       <Button variant="outline" size="sm" onClick={handleBecomeInstructor}>
                         Become Instructor
                       </Button>
                     ) : (
                       <Button variant="outline" size="sm" onClick={handleRoleToggle}>
-                        {actualRole === "instructor" ? "Student" : "Instructor"}
+                        {user?.actual_role === "INSTRUCTOR" ? "Student" : "Instructor"}
                       </Button>
                     )}
                   </div>

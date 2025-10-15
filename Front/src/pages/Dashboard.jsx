@@ -12,6 +12,7 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { useAuth } from "../components/context/AuthContext";
 import { getImageUrl } from "../utils/imageUtils";
+import api from "../services/api";
 
 const Dashboard = () => {
   const { user: authUser, token } = useAuth();
@@ -24,8 +25,6 @@ const Dashboard = () => {
 
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const API_BASE = "http://localhost:3000";
 
   useEffect(() => {
     // Populate profile from auth context
@@ -43,10 +42,8 @@ const Dashboard = () => {
     const fetchCourses = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/course/me/enrolled`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {}
-        });
-        const data = await res.json();
+        const res = await api.get('/course/me/enrolled');
+        const data = res.data;
         // Backend can return paginated or plain list; normalize accordingly
         const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
         const normalized = list.map((c) => {
@@ -77,8 +74,8 @@ const Dashboard = () => {
         setLoading(false);
       }
     };
-    if (token) fetchCourses();
-  }, [token]);
+    fetchCourses();
+  }, []);
 
   const totalCourses = courses.length;
   const certificates = [];
