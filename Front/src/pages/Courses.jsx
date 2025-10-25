@@ -16,6 +16,7 @@ const API_BASE = "http://localhost:3000";
 const Courses = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [instructorSearch, setInstructorSearch] = useState("");
+  const [videoDuration, setVideoDuration] = useState("");
   const location = useLocation();
   const [selectedCategory, setSelectedCategory] = useState(() => {
     const params = new URLSearchParams(location.search);
@@ -32,6 +33,7 @@ const Courses = () => {
   const [availableCategories, setAvailableCategories] = useState([]);
 
   const limit = 3;
+
 
   // (Category is initialized from URL on first render)
 
@@ -61,7 +63,6 @@ const Courses = () => {
     { label: "$50 - $100", value: "50to100" },
     { label: "Above $100", value: "above100" }
   ];
-
   // Fetch courses from backend
   useEffect(() => {
     setLoading(true);

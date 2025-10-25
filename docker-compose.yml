@@ -1,0 +1,44 @@
+services:
+  back:
+    build: ./back
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - NODE_ENV=${NODE_ENV:-development}
+    networks:
+      - app-network
+    volumes:
+      - ./back:/app
+      - /app/node_modules
+
+  front:
+    build: ./front
+    ports:
+      - "5173:80"
+    depends_on:
+      - back
+    networks:
+      - app-network
+
+  # Python services - CLI tools (optional)
+  chatbot:
+    build: ./chatbot
+    networks:
+      - app-network
+    volumes:
+      - ./chatbot:/app
+    profiles: ["cli-tools"]
+
+  transcriber:
+    build: ./transcriber
+    networks:
+      - app-network
+    volumes:
+      - ./transcriber:/app
+      - ./audio_files:/audio_files
+    profiles: ["cli-tools"]
+
+networks:
+  app-network:
+    driver: bridge
