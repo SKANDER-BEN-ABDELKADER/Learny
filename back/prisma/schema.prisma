@@ -1,0 +1,89 @@
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  // provider = "@prisma/client"
+  provider = "prisma-client-js"
+  binaryTargets = ["linux-musl-openssl-3.0.x"]
+}
+
+
+model User {
+  id          Int       @id @default(autoincrement())
+  firstName   String
+  lastName    String
+  email       String    @unique
+  password    String
+  phoneNumber String?   @unique
+  refreshToken String? 
+  role        Role      @default(STUDENT)
+  actual_role Role      @default(STUDENT)
+  domain      String?   // Only for instructors
+  experienceLvl experienceLvl? // Only for instructors
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  profilePicUrl String? @default("/uploads/user icon.png")
+  // Relations
+  coursesCreated Course[]    @relation("InstructorCourses")
+  coursesEnrolled Course[]   @relation("StudentCourses")
+  ratingsGiven   Rating[]
+}
+
+model Course {
+  id          Int      @id @default(autoincrement())
+  title       String 
+  description String
+  category    String
+  level       level    @default(BEGINNER)
+  price       Int
+  hided       Boolean  @default(false)
+  videoUrl    String?
+  lessons      Int? 
+  language    String   @default("English")
+  whatYouWillLearn String[] @default([])
+  requirements String[] @default([])
+  instructor  User     @relation(fields: [instructorId], references: [id], name: "InstructorCourses")
+  instructorId Int
+  students    User[]   @relation(name: "StudentCourses")
+  ratings     Rating[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Rating {
+  id        Int      @id @default(autoincrement())
+  value     Int
+  comment   String?  // Optional comment field for reviews
+  student   User     @relation(fields: [studentId], references: [id])
+  studentId Int
+  course    Course   @relation(fields: [courseId], references: [id])
+  courseId  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
+enum experienceLvl {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum level {
+  ADVANCED
+  INTERMEDIATE
+  BEGINNER
+}
+
+
+
+
+
